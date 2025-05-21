@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uz">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -83,13 +83,11 @@
   <table id="productsTable">
     <thead>
       <tr>
-        <th>Rasm</th>
         <th>Mahsulot nomi</th>
         <th>Qutilar soni</th>
         <th>Har qutida elementlar soni</th>
         <th>Umumiy elementlar soni</th>
         <th>Narx (so'm)</th>
-        <th>Miqdor (dona)</th>
         <th>Jami (so'm)</th>
         <th>O'chirish</th>
       </tr>
@@ -118,67 +116,39 @@
     tr.dataset.id = id;
 
     tr.innerHTML = `
-      <td>
-        <input type="file" accept="image/*" class="img-input" />
-        <br />
-        <img src="" alt="Rasm" class="product-img" style="display:none;" />
-      </td>
       <td><input type="text" placeholder="Mahsulot nomi" class="name-input" /></td>
       <td><input type="number" min="0" value="0" class="boxes-input" /></td>
       <td><input type="number" min="0" value="0" class="items-per-box-input" /></td>
       <td class="total-items-cell">0</td>
       <td><input type="number" min="0" value="0" class="price-input" /></td>
-      <td><input type="number" min="0" value="0" class="qty-input" /></td>
       <td class="sum-cell">0</td>
       <td><button class="remove-btn">O'chirish</button></td>
     `;
 
-    // Rasm yuklash
-    const fileInput = tr.querySelector('.img-input');
-    const imgTag = tr.querySelector('.product-img');
-    fileInput.addEventListener('change', e => {
-      const file = e.target.files[0];
-      if(file){
-        const reader = new FileReader();
-        reader.onload = function(ev){
-          imgTag.src = ev.target.result;
-          imgTag.style.display = 'inline-block';
-        };
-        reader.readAsDataURL(file);
-      }
-    });
-
-    // Elementlar
+    const priceInput = tr.querySelector('.price-input');
     const boxesInput = tr.querySelector('.boxes-input');
     const itemsPerBoxInput = tr.querySelector('.items-per-box-input');
-    const totalItemsCell = tr.querySelector('.total-items-cell');
-    const priceInput = tr.querySelector('.price-input');
-    const qtyInput = tr.querySelector('.qty-input');
     const sumCell = tr.querySelector('.sum-cell');
+    const totalItemsCell = tr.querySelector('.total-items-cell');
 
     function updateRow() {
+      const price = parseFloat(priceInput.value) || 0;
       const boxes = parseInt(boxesInput.value) || 0;
       const itemsPerBox = parseInt(itemsPerBoxInput.value) || 0;
-      const price = parseFloat(priceInput.value) || 0;
-      const qty = parseInt(qtyInput.value) || 0;
 
-      // Umumiy elementlar soni = qutilar soni * har qutidagi elementlar soni
       const totalElems = boxes * itemsPerBox;
       totalItemsCell.textContent = totalElems.toLocaleString('uz-UZ');
 
-      // Jami narx faqat dona (miqdor) bo'yicha hisoblanadi
-      const sum = price * qty;
+      const sum = totalElems * price;
       sumCell.textContent = sum.toLocaleString('uz-UZ');
 
       updateTotals();
     }
 
+    priceInput.addEventListener('input', updateRow);
     boxesInput.addEventListener('input', updateRow);
     itemsPerBoxInput.addEventListener('input', updateRow);
-    priceInput.addEventListener('input', updateRow);
-    qtyInput.addEventListener('input', updateRow);
 
-    // O'chirish tugmasi
     const removeBtn = tr.querySelector('.remove-btn');
     removeBtn.addEventListener('click', () => {
       products = products.filter(p => p.id !== id);
@@ -223,4 +193,5 @@
 
 </body>
 </html>
+
 
