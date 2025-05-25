@@ -1,210 +1,194 @@
-<!DOCTYPE html>
-<html lang="uz">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sklad Kalkulyatori (Aksiya bilan)</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f2f5;
-      padding: 20px;
+// 📦 script.js — Sklad Kalkulyator Web logikasi
+
+const productsBody = document.getElementById('productsBody');
+const totalItems = document.getElementById('totalItems');
+const totalPrice = document.getElementById('totalPrice');
+const totalBonus = document.getElementById('totalBonus');
+const addProductBtn = document.getElementById('addProductBtn');
+const searchInput = document.getElementById('searchInput');
+const saveBtn = document.getElementById('saveBtn');
+const downloadExcel = document.getElementById('downloadExcel');
+const downloadPdf = document.getElementById('downloadPdf');
+const toggleDark = document.getElementById('toggleDark');
+const chartCanvas = document.getElementById('chartCanvas');
+
+let products = [];
+
+function createProductRow(id) {
+  const tr = document.createElement('tr');
+  tr.dataset.id = id;
+  tr.innerHTML = `
+    <td><input type="text" class="name" placeholder="Nom..." /></td>
+    <td><input type="text" class="category" placeholder="Kategoriya..." /></td>
+    <td><input type="number" class="boxes" min="0" value="0" /></td>
+    <td><input type="number" class="perBox" min="0" value="0" /></td>
+    <td class="totalItemsCell">0</td>
+    <td class="priceCell">0</td>
+    <td>
+      <select class="bonusSelect">
+        <option value="0">Yo'q</option>
+        <option value="4+1">4+1</option>
+        <option value="5+1">5+1</option>
+        <option value="10+2">10+2</option>
+      </select>
+    </td>
+    <td class="bonusResult">0 / 0</td>
+    <td><button class="remove">❌</button></td>
+  `;
+
+  const boxes = tr.querySelector('.boxes');
+  const perBox = tr.querySelector('.perBox');
+  const totalItemsCell = tr.querySelector('.totalItemsCell');
+  const priceCell = tr.querySelector('.priceCell');
+  const bonusSelect = tr.querySelector('.bonusSelect');
+  const bonusResult = tr.querySelector('.bonusResult');
+
+  function updateRow() {
+    const boxVal = parseInt(boxes.value) || 0;
+    const perVal = parseInt(perBox.value) || 0;
+    const total = boxVal * perVal;
+    totalItemsCell.textContent = total;
+
+    const price = (total * 1000); // narx = umumiy * 1000 (misol uchun)
+    priceCell.textContent = price.toLocaleString();
+
+    // Aksiya hisoblash
+    let bonusDona = 0, bonusBox = 0;
+    if (bonusSelect.value === '4+1') {
+      bonusBox = Math.floor(boxVal / 4);
+      bonusDona = bonusBox * perVal;
+    } else if (bonusSelect.value === '5+1') {
+      bonusBox = Math.floor(boxVal / 5);
+      bonusDona = bonusBox * perVal;
+    } else if (bonusSelect.value === '10+2') {
+      bonusBox = Math.floor(boxVal / 10) * 2;
+      bonusDona = bonusBox * perVal;
     }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    .container {
-      max-width: 1100px;
-      margin: 20px auto;
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 15px;
-    }
-    th, td {
-      padding: 10px 8px;
-      border: 1px solid #ddd;
-      text-align: center;
-    }
-    th {
-      background: #007bff;
-      color: white;
-    }
-    input[type="number"], input[type="text"], select {
-      width: 100%;
-      padding: 6px 8px;
-      box-sizing: border-box;
-    }
-    button {
-      padding: 10px 20px;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    .total {
-      font-size: 1.2rem;
-      text-align: right;
-      margin-top: 10px;
-      font-weight: 700;
-    }
-    .remove-btn {
-      background: #dc3545;
-    }
-    .remove-btn:hover {
-      background: #a71d2a;
-    }
-  </style>
-</head>
-<body>
+    bonusResult.textContent = `${bonusDona} / ${bonusBox}`;
 
-<div class="container">
-  <h1>Sklad Kalkulyatori (Aksiya bilan)</h1>
-
-  <table id="productsTable">
-    <thead>
-      <tr>
-        <th>Mahsulot nomi</th>
-        <th>Qutilar soni</th>
-        <th>Har qutida elementlar</th>
-        <th>Aksiya</th>
-        <th>1 dona narxi (so'm)</th>
-        <th>Aksiya foydasi<br>(korobka / dona)</th>
-        <th>Umumiy elementlar</th>
-        <th>Umumiy narx</th>
-        <th>O‘chirish</th>
-      </tr>
-    </thead>
-    <tbody id="productsBody"></tbody>
-  </table>
-
-  <button id="addProductBtn">Mahsulot qo‘shish</button>
-
-  <div class="total" id="totalSum">Jami summa: 0 so'm</div>
-  <div class="total" id="totalItems">Jami elementlar soni: 0</div>
-</div>
-
-<script>
-  const productsBody = document.getElementById('productsBody');
-  const totalSum = document.getElementById('totalSum');
-  const totalItems = document.getElementById('totalItems');
-  const addProductBtn = document.getElementById('addProductBtn');
-  let products = [];
-
-  function createProductRow(id) {
-    const tr = document.createElement('tr');
-    tr.dataset.id = id;
-
-    tr.innerHTML = `
-      <td><input type="text" placeholder="Mahsulot nomi" class="name-input" /></td>
-      <td><input type="number" min="0" value="0" class="boxes-input" /></td>
-      <td><input type="number" min="0" value="0" class="items-per-box-input" /></td>
-      <td>
-        <select class="promo-select">
-          <option value="none">Yo‘q</option>
-          <option value="4+1">4+1</option>
-          <option value="5+1">5+1</option>
-        </select>
-      </td>
-      <td><input type="number" min="0" value="0" class="unit-price-input" /></td>
-      <td class="bonus-cell">0 / 0</td>
-      <td class="total-items-cell">0</td>
-      <td class="total-price-cell">0</td>
-      <td><button class="remove-btn">O‘chirish</button></td>
-    `;
-
-    const boxesInput = tr.querySelector('.boxes-input');
-    const itemsPerBoxInput = tr.querySelector('.items-per-box-input');
-    const unitPriceInput = tr.querySelector('.unit-price-input');
-    const promoSelect = tr.querySelector('.promo-select');
-    const bonusCell = tr.querySelector('.bonus-cell');
-    const totalItemsCell = tr.querySelector('.total-items-cell');
-    const totalPriceCell = tr.querySelector('.total-price-cell');
-
-    function calculateBonus(boxes, promo) {
-      if (promo === '4+1') return Math.floor(boxes / 4);
-      if (promo === '5+1') return Math.floor(boxes / 5);
-      return 0;
-    }
-
-    function updateRow() {
-      const boxes = parseInt(boxesInput.value) || 0;
-      const itemsPerBox = parseInt(itemsPerBoxInput.value) || 0;
-      const unitPrice = parseFloat(unitPriceInput.value) || 0;
-      const promo = promoSelect.value;
-
-      const bonusBoxes = calculateBonus(boxes, promo);
-      const bonusItems = bonusBoxes * itemsPerBox;
-      const totalElems = (boxes + bonusBoxes) * itemsPerBox;
-      const totalPrice = totalElems * unitPrice;
-
-      bonusCell.textContent = `${bonusBoxes} / ${bonusItems}`;
-      totalItemsCell.textContent = totalElems.toLocaleString('uz-UZ');
-      totalPriceCell.textContent = totalPrice.toLocaleString('uz-UZ');
-
-      updateTotals();
-    }
-
-    [boxesInput, itemsPerBoxInput, unitPriceInput, promoSelect].forEach(input => {
-      input.addEventListener('input', updateRow);
-    });
-
-    const removeBtn = tr.querySelector('.remove-btn');
-    removeBtn.addEventListener('click', () => {
-      products = products.filter(p => p.id !== id);
-      tr.remove();
-      updateTotals();
-    });
-
-    return tr;
+    updateTotals();
   }
 
-  function updateTotals() {
-    let totalPrice = 0;
-    let totalElements = 0;
-
-    productsBody.querySelectorAll('tr').forEach(tr => {
-      const boxes = parseInt(tr.querySelector('.boxes-input').value) || 0;
-      const itemsPerBox = parseInt(tr.querySelector('.items-per-box-input').value) || 0;
-      const unitPrice = parseFloat(tr.querySelector('.unit-price-input').value) || 0;
-      const promo = tr.querySelector('.promo-select').value;
-
-      const bonusBoxes = promo === '4+1' ? Math.floor(boxes / 4)
-                        : promo === '5+1' ? Math.floor(boxes / 5)
-                        : 0;
-
-      const totalItems = (boxes + bonusBoxes) * itemsPerBox;
-      const price = totalItems * unitPrice;
-
-      totalElements += totalItems;
-      totalPrice += price;
-    });
-
-    totalSum.textContent = `Jami summa: ${totalPrice.toLocaleString('uz-UZ')} so'm`;
-    totalItems.textContent = `Jami elementlar soni: ${totalElements.toLocaleString('uz-UZ')}`;
-  }
-
-  addProductBtn.addEventListener('click', () => {
-    const id = Date.now();
-    products.push({id});
-    const row = createProductRow(id);
-    productsBody.appendChild(row);
+  boxes.addEventListener('input', updateRow);
+  perBox.addEventListener('input', updateRow);
+  bonusSelect.addEventListener('change', updateRow);
+  tr.querySelector('.remove').addEventListener('click', () => {
+    products = products.filter(p => p !== id);
+    tr.remove();
+    updateTotals();
   });
 
-  // Boshlanishida 1 ta qator
-  addProductBtn.click();
-</script>
+  return tr;
+}
 
-</body>
-</html>
+function updateTotals() {
+  let totalCount = 0;
+  let totalCost = 0;
+  let totalBonusItems = 0;
+  let totalBonusBoxes = 0;
+
+  productsBody.querySelectorAll('tr').forEach(tr => {
+    const totalCell = parseInt(tr.querySelector('.totalItemsCell').textContent) || 0;
+    const price = parseInt(tr.querySelector('.priceCell').textContent.replace(/\D/g, '')) || 0;
+    const bonusText = tr.querySelector('.bonusResult').textContent.split('/');
+    const bonusItems = parseInt(bonusText[0]) || 0;
+    const bonusBoxes = parseInt(bonusText[1]) || 0;
+
+    totalCount += totalCell;
+    totalCost += price;
+    totalBonusItems += bonusItems;
+    totalBonusBoxes += bonusBoxes;
+  });
+
+  totalItems.textContent = `Jami elementlar: ${totalCount}`;
+  totalPrice.textContent = `Jami summa: ${totalCost.toLocaleString()} so‘m`;
+  totalBonus.textContent = `Aksiyadan olingan: ${totalBonusItems} dona / ${totalBonusBoxes} quti`;
+
+  updateChart();
+}
+
+// 📊 Chart JS
+let chart;
+function updateChart() {
+  const labels = [];
+  const data = [];
+
+  productsBody.querySelectorAll('tr').forEach(tr => {
+    const name = tr.querySelector('.name').value || 'Noma’lum';
+    const price = parseInt(tr.querySelector('.priceCell').textContent.replace(/\D/g, '')) || 0;
+    labels.push(name);
+    data.push(price);
+  });
+
+  if (chart) chart.destroy();
+  chart = new Chart(chartCanvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Narxlar (so‘m)',
+        data,
+        backgroundColor: '#007bff',
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    }
+  });
+}
+
+addProductBtn.addEventListener('click', () => {
+  const id = Date.now();
+  products.push(id);
+  const row = createProductRow(id);
+  productsBody.appendChild(row);
+});
+
+searchInput.addEventListener('input', () => {
+  const val = searchInput.value.toLowerCase();
+  productsBody.querySelectorAll('tr').forEach(tr => {
+    const name = tr.querySelector('.name').value.toLowerCase();
+    tr.style.display = name.includes(val) ? '' : 'none';
+  });
+});
+
+saveBtn.addEventListener('click', () => {
+  const html = document.querySelector('.container').outerHTML;
+  localStorage.setItem('skladBackup', html);
+  alert('Saqlab qo‘yildi!');
+});
+
+downloadExcel.addEventListener('click', () => {
+  const wb = XLSX.utils.book_new();
+  const data = [['Mahsulot', 'Kategoriya', 'Qutilar', '1 Qutidagi', 'Jami', 'Narx', 'Bonus']];
+  productsBody.querySelectorAll('tr').forEach(tr => {
+    data.push([
+      tr.querySelector('.name').value,
+      tr.querySelector('.category').value,
+      tr.querySelector('.boxes').value,
+      tr.querySelector('.perBox').value,
+      tr.querySelector('.totalItemsCell').textContent,
+      tr.querySelector('.priceCell').textContent,
+      tr.querySelector('.bonusResult').textContent
+    ]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, 'Sklad');
+  XLSX.writeFile(wb, 'sklad.xlsx');
+});
+
+downloadPdf.addEventListener('click', () => {
+  html2pdf().from(document.querySelector('.container')).save('sklad.pdf');
+});
+
+toggleDark.addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+});
+
+// Dastlab 1 qator qo‘shish
+addProductBtn.click();
