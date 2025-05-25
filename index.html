@@ -1,194 +1,238 @@
-// 📦 script.js — Sklad Kalkulyator Web logikasi
-
-const productsBody = document.getElementById('productsBody');
-const totalItems = document.getElementById('totalItems');
-const totalPrice = document.getElementById('totalPrice');
-const totalBonus = document.getElementById('totalBonus');
-const addProductBtn = document.getElementById('addProductBtn');
-const searchInput = document.getElementById('searchInput');
-const saveBtn = document.getElementById('saveBtn');
-const downloadExcel = document.getElementById('downloadExcel');
-const downloadPdf = document.getElementById('downloadPdf');
-const toggleDark = document.getElementById('toggleDark');
-const chartCanvas = document.getElementById('chartCanvas');
-
-let products = [];
-
-function createProductRow(id) {
-  const tr = document.createElement('tr');
-  tr.dataset.id = id;
-  tr.innerHTML = `
-    <td><input type="text" class="name" placeholder="Nom..." /></td>
-    <td><input type="text" class="category" placeholder="Kategoriya..." /></td>
-    <td><input type="number" class="boxes" min="0" value="0" /></td>
-    <td><input type="number" class="perBox" min="0" value="0" /></td>
-    <td class="totalItemsCell">0</td>
-    <td class="priceCell">0</td>
-    <td>
-      <select class="bonusSelect">
-        <option value="0">Yo'q</option>
-        <option value="4+1">4+1</option>
-        <option value="5+1">5+1</option>
-        <option value="10+2">10+2</option>
-      </select>
-    </td>
-    <td class="bonusResult">0 / 0</td>
-    <td><button class="remove">❌</button></td>
-  `;
-
-  const boxes = tr.querySelector('.boxes');
-  const perBox = tr.querySelector('.perBox');
-  const totalItemsCell = tr.querySelector('.totalItemsCell');
-  const priceCell = tr.querySelector('.priceCell');
-  const bonusSelect = tr.querySelector('.bonusSelect');
-  const bonusResult = tr.querySelector('.bonusResult');
-
-  function updateRow() {
-    const boxVal = parseInt(boxes.value) || 0;
-    const perVal = parseInt(perBox.value) || 0;
-    const total = boxVal * perVal;
-    totalItemsCell.textContent = total;
-
-    const price = (total * 1000); // narx = umumiy * 1000 (misol uchun)
-    priceCell.textContent = price.toLocaleString();
-
-    // Aksiya hisoblash
-    let bonusDona = 0, bonusBox = 0;
-    if (bonusSelect.value === '4+1') {
-      bonusBox = Math.floor(boxVal / 4);
-      bonusDona = bonusBox * perVal;
-    } else if (bonusSelect.value === '5+1') {
-      bonusBox = Math.floor(boxVal / 5);
-      bonusDona = bonusBox * perVal;
-    } else if (bonusSelect.value === '10+2') {
-      bonusBox = Math.floor(boxVal / 10) * 2;
-      bonusDona = bonusBox * perVal;
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sklad Kalkulyatori</title>
+  <style>
+    * {
+      box-sizing: border-box;
     }
-    bonusResult.textContent = `${bonusDona} / ${bonusBox}`;
 
-    updateTotals();
-  }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+    }
 
-  boxes.addEventListener('input', updateRow);
-  perBox.addEventListener('input', updateRow);
-  bonusSelect.addEventListener('change', updateRow);
-  tr.querySelector('.remove').addEventListener('click', () => {
-    products = products.filter(p => p !== id);
-    tr.remove();
-    updateTotals();
-  });
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
 
-  return tr;
-}
+    h1 {
+      text-align: center;
+      color: #333;
+      font-size: 1.8rem;
+    }
 
-function updateTotals() {
-  let totalCount = 0;
-  let totalCost = 0;
-  let totalBonusItems = 0;
-  let totalBonusBoxes = 0;
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+    }
 
-  productsBody.querySelectorAll('tr').forEach(tr => {
-    const totalCell = parseInt(tr.querySelector('.totalItemsCell').textContent) || 0;
-    const price = parseInt(tr.querySelector('.priceCell').textContent.replace(/\D/g, '')) || 0;
-    const bonusText = tr.querySelector('.bonusResult').textContent.split('/');
-    const bonusItems = parseInt(bonusText[0]) || 0;
-    const bonusBoxes = parseInt(bonusText[1]) || 0;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      min-width: 800px;
+    }
 
-    totalCount += totalCell;
-    totalCost += price;
-    totalBonusItems += bonusItems;
-    totalBonusBoxes += bonusBoxes;
-  });
+    th, td {
+      padding: 10px;
+      text-align: center;
+      border: 1px solid #ccc;
+    }
 
-  totalItems.textContent = `Jami elementlar: ${totalCount}`;
-  totalPrice.textContent = `Jami summa: ${totalCost.toLocaleString()} so‘m`;
-  totalBonus.textContent = `Aksiyadan olingan: ${totalBonusItems} dona / ${totalBonusBoxes} quti`;
+    th {
+      background: #007bff;
+      color: white;
+    }
 
-  updateChart();
-}
+    input[type="number"],
+    input[type="text"] {
+      width: 100%;
+      padding: 6px;
+    }
 
-// 📊 Chart JS
-let chart;
-function updateChart() {
-  const labels = [];
-  const data = [];
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 8px;
+      background: #007bff;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 15px;
+    }
 
-  productsBody.querySelectorAll('tr').forEach(tr => {
-    const name = tr.querySelector('.name').value || 'Noma’lum';
-    const price = parseInt(tr.querySelector('.priceCell').textContent.replace(/\D/g, '')) || 0;
-    labels.push(name);
-    data.push(price);
-  });
+    button:hover {
+      background: #0056b3;
+    }
 
-  if (chart) chart.destroy();
-  chart = new Chart(chartCanvas, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Narxlar (so‘m)',
-        data,
-        backgroundColor: '#007bff',
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true
-        }
+    .remove-btn {
+      background: #dc3545;
+    }
+
+    .remove-btn:hover {
+      background: #a71d2a;
+    }
+
+    .totals {
+      margin-top: 20px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    @media (max-width: 600px) {
+      h1 {
+        font-size: 1.4rem;
+      }
+
+      button {
+        width: 100%;
+        font-size: 1rem;
+      }
+
+      .totals {
+        font-size: 1rem;
       }
     }
-  });
-}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sklad Kalkulyatori</h1>
 
-addProductBtn.addEventListener('click', () => {
-  const id = Date.now();
-  products.push(id);
-  const row = createProductRow(id);
-  productsBody.appendChild(row);
-});
+    <div class="table-responsive">
+      <table id="productsTable">
+        <thead>
+          <tr>
+            <th>Mahsulot nomi</th>
+            <th>Qutilar soni</th>
+            <th>Har qutida elementlar</th>
+            <th>Umumiy elementlar</th>
+            <th>Narxi (so'm)</th>
+            <th>O'chirish</th>
+          </tr>
+        </thead>
+        <tbody id="productsBody">
+        </tbody>
+      </table>
+    </div>
 
-searchInput.addEventListener('input', () => {
-  const val = searchInput.value.toLowerCase();
-  productsBody.querySelectorAll('tr').forEach(tr => {
-    const name = tr.querySelector('.name').value.toLowerCase();
-    tr.style.display = name.includes(val) ? '' : 'none';
-  });
-});
+    <button id="addProductBtn">Mahsulot qo‘shish</button>
 
-saveBtn.addEventListener('click', () => {
-  const html = document.querySelector('.container').outerHTML;
-  localStorage.setItem('skladBackup', html);
-  alert('Saqlab qo‘yildi!');
-});
+    <div class="totals">
+      <div id="totalItems">Jami elementlar soni: 0</div>
+      <div id="totalSum">Jami summa: 0 so'm</div>
+    </div>
+  </div>
 
-downloadExcel.addEventListener('click', () => {
-  const wb = XLSX.utils.book_new();
-  const data = [['Mahsulot', 'Kategoriya', 'Qutilar', '1 Qutidagi', 'Jami', 'Narx', 'Bonus']];
-  productsBody.querySelectorAll('tr').forEach(tr => {
-    data.push([
-      tr.querySelector('.name').value,
-      tr.querySelector('.category').value,
-      tr.querySelector('.boxes').value,
-      tr.querySelector('.perBox').value,
-      tr.querySelector('.totalItemsCell').textContent,
-      tr.querySelector('.priceCell').textContent,
-      tr.querySelector('.bonusResult').textContent
-    ]);
-  });
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, 'Sklad');
-  XLSX.writeFile(wb, 'sklad.xlsx');
-});
+  <script>
+    const productsBody = document.getElementById('productsBody');
+    const totalSum = document.getElementById('totalSum');
+    const totalItems = document.getElementById('totalItems');
+    const addProductBtn = document.getElementById('addProductBtn');
 
-downloadPdf.addEventListener('click', () => {
-  html2pdf().from(document.querySelector('.container')).save('sklad.pdf');
-});
+    let products = JSON.parse(localStorage.getItem('products')) || [];
 
-toggleDark.addEventListener('click', () => {
-  document.body.classList.toggle('dark');
-});
+    function createProductRow(product) {
+      const tr = document.createElement('tr');
+      tr.dataset.id = product.id;
 
-// Dastlab 1 qator qo‘shish
-addProductBtn.click();
+      tr.innerHTML = `
+        <td><input type="text" value="${product.name}" /></td>
+        <td><input type="number" min="0" value="${product.boxes}" class="boxes-input" /></td>
+        <td><input type="number" min="0" value="${product.itemsPerBox}" class="items-per-box-input" /></td>
+        <td class="total-items-cell">${product.totalItems}</td>
+        <td><input type="number" min="0" value="${product.price}" class="price-input" /></td>
+        <td><button class="remove-btn">O'chirish</button></td>
+      `;
+
+      const boxesInput = tr.querySelector('.boxes-input');
+      const itemsPerBoxInput = tr.querySelector('.items-per-box-input');
+      const totalItemsCell = tr.querySelector('.total-items-cell');
+      const nameInput = tr.querySelector('input[type="text"]');
+      const priceInput = tr.querySelector('.price-input');
+
+      function updateRow() {
+        product.name = nameInput.value;
+        product.boxes = parseInt(boxesInput.value) || 0;
+        product.itemsPerBox = parseInt(itemsPerBoxInput.value) || 0;
+        product.price = parseFloat(priceInput.value) || 0;
+        product.totalItems = product.boxes * product.itemsPerBox;
+        totalItemsCell.textContent = product.totalItems.toLocaleString('uz-UZ');
+
+        updateTotals();
+        saveToStorage();
+      }
+
+      boxesInput.addEventListener('input', updateRow);
+      itemsPerBoxInput.addEventListener('input', updateRow);
+      nameInput.addEventListener('input', updateRow);
+      priceInput.addEventListener('input', updateRow);
+
+      tr.querySelector('.remove-btn').addEventListener('click', () => {
+        products = products.filter(p => p.id !== product.id);
+        tr.remove();
+        updateTotals();
+        saveToStorage();
+      });
+
+      return tr;
+    }
+
+    function updateTotals() {
+      let totalPrice = 0;
+      let totalElements = 0;
+
+      products.forEach(product => {
+        totalElements += product.totalItems;
+        totalPrice += product.price * product.boxes;
+      });
+
+      totalItems.textContent = `Jami elementlar soni: ${totalElements.toLocaleString('uz-UZ')}`;
+      totalSum.textContent = `Jami summa: ${totalPrice.toLocaleString('uz-UZ')} so'm`;
+    }
+
+    function saveToStorage() {
+      localStorage.setItem('products', JSON.stringify(products));
+    }
+
+    function renderProducts() {
+      productsBody.innerHTML = '';
+      products.forEach(product => {
+        const row = createProductRow(product);
+        productsBody.appendChild(row);
+      });
+      updateTotals();
+    }
+
+    addProductBtn.addEventListener('click', () => {
+      const newProduct = {
+        id: Date.now(),
+        name: '',
+        boxes: 0,
+        itemsPerBox: 0,
+        price: 0,
+        totalItems: 0
+      };
+      products.push(newProduct);
+      const row = createProductRow(newProduct);
+      productsBody.appendChild(row);
+      saveToStorage();
+    });
+
+    renderProducts();
+  </script>
+</body>
+</html>
